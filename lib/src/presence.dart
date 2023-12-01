@@ -47,7 +47,7 @@ class PhoenixPresence {
     // Listens to new messages on the [channel] matching [eventNames]
     // and processes them according to [_onMessage].
     _subscription = channel.messages
-        .where((message) => eventNames.containsValue(message.event.value))
+        .where((message) => eventNames.containsValue(message.event))
         .listen(_onMessage);
   }
 
@@ -119,9 +119,9 @@ class PhoenixPresence {
   // Process new Presence messages.
   void _onMessage(Message message) {
     // Processing of 'state' events.
-    if (message.event.value == stateEventName) {
+    if (message.event == stateEventName) {
       _joinRef = channel.joinRef;
-      final newState = _decodeStateFromPayload(message.payload!);
+      final newState = _decodeStateFromPayload(message.payload!.toJson());
       state = _syncState(state, newState);
       for (final diff in pendingDiffs) {
         state = _syncDiff(state, diff);
@@ -130,8 +130,8 @@ class PhoenixPresence {
       onSync();
 
       // Processing of 'diff' events.
-    } else if (message.event.value == diffEventName) {
-      final diff = _decodeDiffFromPayload(message.payload!);
+    } else if (message.event == diffEventName) {
+      final diff = _decodeDiffFromPayload(message.payload!.toJson());
       if (inPendingSyncState) {
         pendingDiffs.add(diff);
       } else {

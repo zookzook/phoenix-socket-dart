@@ -60,7 +60,7 @@ void main() {
 
       channel1.join().onReply('error', (error) {
         expect(error.status, equals('error'));
-        expect(error.response, equals({'reason': 'join crashed'}));
+        expect(error.message.payload, equals({'reason': 'join crashed'}));
         completer.complete();
       });
 
@@ -77,7 +77,7 @@ void main() {
 
       final reply = await channel1.push('hello!', {'foo': 'bar'}).future;
       expect(reply.status, equals('ok'));
-      expect(reply.response, equals({'name': 'bar'}));
+      expect(reply.message.payload, equals({'name': 'bar'}));
     });
 
     test('can receive messages from channels', () async {
@@ -90,7 +90,7 @@ void main() {
 
       var count = 0;
       await for (final msg in channel2.messages) {
-        expect(msg.event.value, equals('ping'));
+        expect(msg.event, equals('ping'));
         expect(msg.payload, equals({}));
         if (++count == 5) break;
       }

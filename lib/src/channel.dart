@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:logging/logging.dart';
 import 'package:pedantic/pedantic.dart';
+import 'package:phoenix_socket/src/payload.dart';
 
 import 'events.dart';
 import 'exceptions.dart';
@@ -64,7 +65,7 @@ class PhoenixChannel {
   final PhoenixSocket socket;
 
   final StreamController<Message> _controller;
-  final Map<PhoenixChannelEvent, Completer<Message>> _waiters;
+  final Map<String, Completer<Message>> _waiters;
   final List<StreamSubscription> _subscriptions = [];
 
   /// The name of the topic to which this channel will bind.
@@ -111,7 +112,7 @@ class PhoenixChannel {
 
   /// Returns a future that will complete (or throw) when the provided
   /// reply arrives (or throws).
-  Future<Message> onPushReply(PhoenixChannelEvent replyEvent) {
+  Future<Message> onPushReply(String replyEvent) {
     if (_waiters.containsKey(replyEvent)) {
       _logger.finer(
         () => 'Removing previous waiter for $replyEvent',
@@ -193,15 +194,10 @@ class PhoenixChannel {
     final prevState = _state;
     _state = PhoenixChannelState.leaving;
 
-    final currentLeavePush = _leavePush ??= Push(
-      this,
-      event: PhoenixChannelEvent.leave,
-      payload: () => {},
-      timeout: timeout ?? _timeout,
-    );
+    final currentLeavePush = _leavePush ??= Push(this, event: PhoenixChannelEvent.leave, payload: JsonPayload({}), timeout: timeout ?? _timeout,);
 
     if (!socket.isConnected || prevState != PhoenixChannelState.joined) {
-      currentLeavePush.trigger(PushResponse(status: 'ok'));
+      currentLeavePush.trigger(PushResponse.fromStatus('ok'));
     } else {
       void onClose(PushResponse reply) {
         _onClose(reply);
@@ -232,45 +228,18 @@ class PhoenixChannel {
   }
 
   /// Push a message to the Phoenix server.
-  Push push(
-    /// The name of the message's event.
-    ///
-    /// This can be any string, as long as it matches with something
-    /// expected on the backend implementation.
-    String eventName,
-
-    /// The message payload.
-    ///
-    /// This needs to be a JSON encodable object.
-    Map<String, dynamic> payload, [
-    /// Manually set timeout value for this push.
-    ///
-    /// If not provided, the default timeout will be used.
-    Duration? newTimeout,
-  ]) =>
-      pushEvent(
-        PhoenixChannelEvent.custom(eventName),
-        payload,
-        newTimeout,
-      );
+  Push push(String eventName, dynamic payload, [Duration? newTimeout]) {
+    return pushEvent(eventName, payload, newTimeout);
+  }
 
   /// Push a message with a valid [PhoenixChannelEvent] name.
   ///
   /// This variant is used internally for channel joining/leaving. Prefer
   /// using [push] instead.
-  Push pushEvent(
-    PhoenixChannelEvent event,
-    Map<String, dynamic> payload, [
-    Duration? newTimeout,
-  ]) {
+  Push pushEvent(String event, dynamic payload, [Duration? newTimeout]) {
     assert(_joinedOnce);
 
-    final pushEvent = Push(
-      this,
-      event: event,
-      payload: () => payload,
-      timeout: newTimeout ?? _timeout,
-    );
+    final pushEvent = Push(this, event: event, payload: payload, timeout: newTimeout ?? _timeout);
 
     if (canPush) {
       pushEvent.send();
@@ -303,20 +272,14 @@ class PhoenixChannel {
   }
 
   Push _prepareJoin([Duration? providedTimeout]) {
-    final push = Push(
-      this,
-      event: PhoenixChannelEvent.join,
-      payload: () => parameters,
-      timeout: providedTimeout ?? _timeout,
-    );
+    final push = Push(this, event: PhoenixChannelEvent.join, payload: JsonPayload(parameters), timeout: providedTimeout ?? _timeout);
     _bindJoinPush(push);
     return push;
   }
 
   void _bindJoinPush(Push push) {
-    push
-      ..cleanUp()
-      ..onReply('ok', (response) {
+    push.cleanUp();
+    push.onReply('ok', (response) {
         _logger.finer("Join message was ok'ed");
         _state = PhoenixChannelState.joined;
         _rejoinTimer?.cancel();
@@ -324,23 +287,20 @@ class PhoenixChannel {
           push.send();
         }
         pushBuffer.clear();
-      })
-      ..onReply('error', (response) {
+      });
+
+    push.onReply('error', (response) {
         _logger.warning('Join message got error response: $response');
         _state = PhoenixChannelState.errored;
         if (socket.isConnected) {
           _startRejoinTimer();
         }
-      })
-      ..onReply('timeout', (response) {
+      });
+
+    push.onReply('timeout', (response) {
         _logger.warning('Join message timed out');
 
-        Push(
-          this,
-          event: PhoenixChannelEvent.leave,
-          payload: () => {},
-          timeout: _timeout,
-        ).send();
+        Push(this, event: PhoenixChannelEvent.leave, payload: JsonPayload({}), timeout: _timeout).send();
 
         _state = PhoenixChannelState.errored;
         _joinPush.reset();
@@ -390,10 +350,19 @@ class PhoenixChannel {
         _startRejoinTimer();
       }
     } else if (message.event == PhoenixChannelEvent.reply) {
-      _controller.add(message.asReplyEvent());
+      message.updateEvent();
+      final waiter = _waiters[message.getKey()!];
+      if (waiter != null) {
+        _logger.finer(
+              () => 'Notifying waiter for ${message.event}',
+        );
+        waiter.complete(message);
+      } else {
+        _logger.finer(() => 'No waiter to notify for ${message.event}');
+      }
     }
 
-    final waiter = _waiters[message.event];
+/*    final waiter = _waiters[message.event];
     if (waiter != null) {
       _logger.finer(
         () => 'Notifying waiter for ${message.event}',
@@ -401,14 +370,11 @@ class PhoenixChannel {
       waiter.complete(message);
     } else {
       _logger.finer(() => 'No waiter to notify for ${message.event}');
-    }
+    }*/
   }
 
   void _onClose(PushResponse response) {
     _logger.finer('Leave message has completed');
-    trigger(Message(
-      event: PhoenixChannelEvent.close,
-      payload: const <String, String>{'ok': 'leave'},
-    ));
+    trigger(Message(event: PhoenixChannelEvent.close, payload: JsonPayload({'ok': 'leave'})));
   }
 }

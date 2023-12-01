@@ -12,13 +12,32 @@ class MessageSerializer {
   static MessageSerializer? _instance;
 
   /// Yield a [Message] from some raw string arriving from a websocket.
-  Message decode(String rawData) {
-    return Message.fromJson(jsonDecode(rawData));
+  Message decode(dynamic rawData) {
+    if(rawData is List<int>) {
+      return Message.fromBinary(rawData);
+    }
+    else
+      if(rawData is String) {
+        return Message.fromJson(jsonDecode(rawData));
+      }
+    else {
+      throw ArgumentError('Received a non-string or a non-list of integers');
+    }
   }
 
   /// Given a [Message], return the raw string that would be sent through
   /// a websocket.
-  String encode(Message message) {
-    return jsonEncode(message.encode());
+  Object encode(Message message) {
+    try {
+      if(message.isBinary) {
+        return message.encode();
+      }
+      else {
+        return jsonEncode(message.encode());
+      }
+    } catch(e) {
+      print("Errror: $e");
+      rethrow;
+    }
   }
 }

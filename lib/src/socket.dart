@@ -81,10 +81,8 @@ class PhoenixSocket {
   final Map<String, Completer<Message>> _pendingMessages = {};
   final Map<String, Stream<Message>> _topicStreams = {};
 
-  final BehaviorSubject<PhoenixSocketEvent> _stateStreamController =
-      BehaviorSubject();
-  final StreamController<String> _receiveStreamController =
-      StreamController.broadcast();
+  final BehaviorSubject<PhoenixSocketEvent> _stateStreamController = BehaviorSubject();
+  final StreamController<dynamic> _receiveStreamController = StreamController.broadcast();
   final String _endpoint;
   final StreamController<Message> _topicMessages = StreamController();
 
@@ -172,8 +170,7 @@ class PhoenixSocket {
   /// by retryAfterIntervalMS
   Future<PhoenixSocket?> connect() async {
     if (_ws != null) {
-      _logger.warning(
-          'Calling connect() on already connected or connecting socket.');
+      _logger.warning('Calling connect() on already connected or connecting socket.');
       return this;
     }
 
@@ -262,7 +259,7 @@ class PhoenixSocket {
     channels.clear();
 
     for (final channel in disposedChannels) {
-      channel.leavePush?.trigger(PushResponse(status: 'ok'));
+      channel.leavePush?.trigger(PushResponse.fromStatus('ok'));
       channel.close();
     }
 
@@ -320,7 +317,7 @@ class PhoenixSocket {
     return (_pendingMessages[message.ref!] = Completer<Message>()).future;
   }
 
-  void _addToSink(String data) {
+  void _addToSink(Object data) {
     if (_disposed) {
       return;
     }
@@ -336,25 +333,16 @@ class PhoenixSocket {
 
   /// [topic] is the name of the channel you wish to join
   /// [parameters] are any options parameters you wish to send
-  PhoenixChannel addChannel({
-    required String topic,
-    Map<String, dynamic>? parameters,
-    Duration? timeout,
-  }) {
+  PhoenixChannel addChannel({required String topic, Map<String, dynamic>? parameters, Duration? timeout}) {
+
     PhoenixChannel? channel;
     if (channels.isNotEmpty) {
-      final foundChannels =
-          channels.entries.where((element) => element.value.topic == topic);
+      final foundChannels = channels.entries.where((element) => element.value.topic == topic);
       channel = foundChannels.isNotEmpty ? foundChannels.first.value : null;
     }
 
     if (channel == null) {
-      channel = PhoenixChannel.fromSocket(
-        this,
-        topic: topic,
-        parameters: parameters,
-        timeout: timeout ?? defaultTimeout,
-      );
+      channel = PhoenixChannel.fromSocket(this, topic: topic, parameters: parameters, timeout: timeout ?? defaultTimeout);
 
       channels[channel.reference] = channel;
       _logger.finer(() => 'Adding channel ${channel!.topic}');
@@ -485,12 +473,8 @@ class PhoenixSocket {
   }
 
   void _onSocketData(message) {
-    if (message is String) {
-      if (!_receiveStreamController.isClosed) {
-        _receiveStreamController.add(message);
-      }
-    } else {
-      throw ArgumentError('Received a non-string');
+    if (!_receiveStreamController.isClosed) {
+      _receiveStreamController.add(message);
     }
   }
 

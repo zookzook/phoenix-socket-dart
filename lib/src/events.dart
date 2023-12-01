@@ -51,74 +51,24 @@ class PhoenixSocketErrorEvent extends PhoenixSocketEvent {
   List<Object?> get props => [error];
 }
 
-/// Encapsulates constants used in the protocol over [PhoenixChannel].
-class PhoenixChannelEvent extends Equatable {
-  PhoenixChannelEvent._(this.value);
+class PhoenixChannelEvent {
 
-  /// A reply event name for a given push ref value.
-  factory PhoenixChannelEvent.replyFor(String ref) =>
-      PhoenixChannelEvent._('${__chanReplyEventName}_$ref');
-
-  /// A custom push event.
-  ///
-  /// This is the event name used when a user of the library sends a message
-  /// on a channel.
-  factory PhoenixChannelEvent.custom(name) => PhoenixChannelEvent._(name);
-
-  /// Instantiates a PhoenixChannelEvent from
-  /// one of the values used in the wire protocol.
-  factory PhoenixChannelEvent(String value) {
-    switch (value) {
-      case __closeEventName:
-        return close;
-      case __errorEventName:
-        return error;
-      case __joinEventName:
-        return join;
-      case __replyEventName:
-        return reply;
-      case __leaveEventName:
-        return leave;
-      default:
-        throw ArgumentError.value(value);
-    }
-  }
-  static const String __closeEventName = 'phx_close';
-  static const String __errorEventName = 'phx_error';
-  static const String __joinEventName = 'phx_join';
-  static const String __replyEventName = 'phx_reply';
-  static const String __leaveEventName = 'phx_leave';
-  static const String __chanReplyEventName = 'chan_reply';
-
-  /// The string value for a channel event.
-  final String value;
-
-  /// The constant close event
-  static PhoenixChannelEvent close = PhoenixChannelEvent._(__closeEventName);
-
-  /// The constant error event
-  static PhoenixChannelEvent error = PhoenixChannelEvent._(__errorEventName);
-
-  /// The constant join event
-  static PhoenixChannelEvent join = PhoenixChannelEvent._(__joinEventName);
-
-  /// The constant reply event
-  static PhoenixChannelEvent reply = PhoenixChannelEvent._(__replyEventName);
-
-  /// The constant leave event
-  static PhoenixChannelEvent leave = PhoenixChannelEvent._(__leaveEventName);
-
-  /// The constant heartbeat event
-  static PhoenixChannelEvent heartbeat = PhoenixChannelEvent._('heartbeat');
+  static const String close = 'phx_close';
+  static const String error = 'phx_error';
+  static const String join = 'phx_join';
+  static const String reply = 'phx_reply';
+  static const String leave = 'phx_leave';
+  static const String chanReply = 'chan_reply';
+  static const String heartbeat = 'heartbeat';
 
   /// The constant set of possible internal channel event names.
-  static Set<PhoenixChannelEvent> statuses = {close, error, join, reply, leave};
+  static Set<String> statuses = {close, error, join, reply, leave};
+
+  static String makeKey(String ref) => '${chanReply}_$ref';
 
   /// Whether the event name is an 'reply' event
-  bool get isReply =>
-      value.startsWith(__chanReplyEventName) ||
-      value.startsWith(__replyEventName);
+  static bool isReply(String value) =>
+      value.startsWith(chanReply) ||
+      value.startsWith(reply);
 
-  @override
-  List<Object> get props => [value];
 }

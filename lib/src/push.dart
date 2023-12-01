@@ -8,14 +8,12 @@ import 'channel.dart';
 import 'events.dart';
 import 'exceptions.dart';
 import 'message.dart';
+import 'payload.dart';
 
 /// Encapsulates the response to a [Push].
 class PushResponse extends Equatable {
   /// Builds a PushResponse from a status and response.
-  PushResponse({
-    this.status,
-    this.response,
-  });
+  PushResponse(this.message);
 
   /// Builds a PushResponse from a Map payload.
   ///
@@ -31,20 +29,20 @@ class PushResponse extends Equatable {
   /// }
   /// ```
   factory PushResponse.fromMessage(Message message) {
-    final data = message.payload!;
-    return PushResponse(
-      status: data['status'] as String?,
-      response: data['response'],
-    );
+    return PushResponse(message);
+  }
+
+  factory PushResponse.fromStatus(String status) {
+    return PushResponse(Message.fromStatus(status));
   }
 
   /// Status provided by the backend.
   ///
   /// Value is usually either 'ok' or 'error'.
-  final String? status;
+  String? get status => message.status;
 
-  /// Arbitrary JSON content provided by the backend.
-  final dynamic response;
+  /// the response message
+  final Message message;
 
   /// Whether the response as a 'ok' status.
   bool get isOk => status == 'ok';
@@ -56,14 +54,11 @@ class PushResponse extends Equatable {
   bool get isTimeout => status == 'timeout';
 
   @override
-  List<Object?> get props => [status, response];
+  List<Object?> get props => [status, message];
 
   @override
   bool get stringify => true;
 }
-
-/// Type of function that should return a push payload
-typedef PayloadGetter = Map<String, dynamic> Function();
 
 /// Object produced by [PhoenixChannel.push] to encapsulate
 /// the message sent and its lifecycle.
@@ -71,12 +66,7 @@ class Push {
   /// Build a Push message from its content and associated channel.
   ///
   /// Prefer using [PhoenixChannel.push] instead of using this.
-  Push(
-    PhoenixChannel channel, {
-    this.event,
-    this.payload,
-    this.timeout,
-  })  : _channel = channel,
+  Push(PhoenixChannel channel, {this.event, this.payload, this.timeout})  : _channel = channel,
         _logger = Logger('phoenix_socket.push.${channel.loggerName}'),
         _responseCompleter = Completer<PushResponse>();
 
@@ -85,11 +75,9 @@ class Push {
       ListMultimap();
 
   /// The event name associated with the pushed message
-  final PhoenixChannelEvent? event;
+  final String? event;
 
-  /// A getter function that yields the payload of the pushed message,
-  /// usually a JSON object.
-  final PayloadGetter? payload;
+  final Payload? payload;
 
   /// Channel through which the message was sent.
   final PhoenixChannel _channel;
@@ -102,7 +90,7 @@ class Push {
   bool _awaitingReply = false;
   Timer? _timeoutTimer;
   String? _ref;
-  PhoenixChannelEvent? _replyEvent;
+  String? _replyEvent;
 
   Completer<PushResponse> _responseCompleter;
 
@@ -127,8 +115,8 @@ class Push {
   }
 
   /// The event name of the expected reply coming from the Phoenix backend.
-  PhoenixChannelEvent get replyEvent =>
-      _replyEvent ??= PhoenixChannelEvent.replyFor(ref);
+  String get replyEvent =>
+      _replyEvent ??= PhoenixChannelEvent.makeKey(ref);
 
   /// Returns whether the given status was received from the backend as
   /// a reply.
@@ -138,6 +126,7 @@ class Push {
   ///
   /// This also schedules the timeout to be triggered in the future.
   Future<void> send() async {
+
     if (_received is PushResponse && _received!.isTimeout) {
       _logger.warning('Trying to send push $ref after timeout');
       return;
@@ -146,22 +135,15 @@ class Push {
     _sent = true;
     _awaitingReply = false;
 
+
     startTimeout();
     try {
-      await _channel.socket.sendMessage(Message(
-        event: event!,
-        topic: _channel.topic,
-        payload: payload!(),
-        ref: ref,
-        joinRef: _channel.joinRef,
-      ));
+      Message message = Message(event: event!, topic: _channel.topic, payload: payload, ref: ref, joinRef: _channel.joinRef);
+      await _channel.socket.sendMessage(message);
+
       // ignore: avoid_catches_without_on_clauses
     } catch (err, stacktrace) {
-      _logger.warning(
-        'Catched error for push $ref',
-        err,
-        stacktrace,
-      );
+      _logger.warning('Cached error for push $ref, $err, $stacktrace', err, stacktrace);
       _receiveResponse(err);
     }
   }
@@ -178,10 +160,7 @@ class Push {
 
   /// Associate a callback to be called if and when a reply with the given
   /// status is received.
-  void onReply(
-    String status,
-    void Function(PushResponse) callback,
-  ) {
+  void onReply(String status, void Function(PushResponse) callback) {
     _receivers[status].add(callback);
   }
 
@@ -232,13 +211,13 @@ class Push {
           () => '  event: $replyEvent, status: ${response.status}',
         )
         ..finer(
-          () => '  response: ${response.response}',
+          () => '  response: ${response.message}',
         );
 
       return;
     } else {
       _logger.finer(
-        () => 'Completing for $replyEvent with response ${response.response}',
+        () => 'Completing for $replyEvent with response ${response.message}',
       );
       _responseCompleter.complete(response);
     }
