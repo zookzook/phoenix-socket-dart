@@ -351,7 +351,7 @@ class PhoenixChannel {
       }
     } else if (message.event == PhoenixChannelEvent.reply) {
       message.updateEvent();
-      final waiter = _waiters[message.getKey()!];
+      final waiter = _waiters[message.event];
       if (waiter != null) {
         _logger.finer(
               () => 'Notifying waiter for ${message.event}',
@@ -362,15 +362,6 @@ class PhoenixChannel {
       }
     }
 
-/*    final waiter = _waiters[message.event];
-    if (waiter != null) {
-      _logger.finer(
-        () => 'Notifying waiter for ${message.event}',
-      );
-      waiter.complete(message);
-    } else {
-      _logger.finer(() => 'No waiter to notify for ${message.event}');
-    }*/
   }
 
   void _onClose(PushResponse response) {

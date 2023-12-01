@@ -204,10 +204,6 @@ class Message extends Equatable {
 
   bool get isBinary => payload!.binary();
 
-  String? getKey() {
-    return PhoenixChannelEvent.makeKey(ref!);
-  }
-
   void updateEvent() {
     event = PhoenixChannelEvent.makeKey(ref!);
   }
