@@ -12,6 +12,7 @@ import 'channel.dart';
 import 'events.dart';
 import 'exceptions.dart';
 import 'message.dart';
+import 'payload.dart';
 import 'push.dart';
 import 'socket_options.dart';
 
@@ -333,7 +334,7 @@ class PhoenixSocket {
 
   /// [topic] is the name of the channel you wish to join
   /// [parameters] are any options parameters you wish to send
-  PhoenixChannel addChannel({required String topic, Map<String, dynamic>? parameters, Duration? timeout}) {
+  PhoenixChannel addChannel({required String topic, Payload? parameters, Duration? timeout}) {
 
     PhoenixChannel? channel;
     if (channels.isNotEmpty) {

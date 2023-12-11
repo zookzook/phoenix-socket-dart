@@ -1,8 +1,7 @@
 abstract class Payload {
-  bool binary();
+  bool isBinary();
+
   Map<String, dynamic> toJson();
-  // todo: umbenennen für das IPC Zeugs
-  Object encode();
 }
 
 class BinaryPayload extends Payload {
@@ -12,18 +11,13 @@ class BinaryPayload extends Payload {
   BinaryPayload(this.payload);
 
   @override
-  bool binary() {
+  bool isBinary() {
     return true;
   }
 
   @override
   Map<String, dynamic> toJson() {
-    return {};
-  }
-
-  @override
-  Object encode() {
-    return payload;
+    return {'binary': payload};
   }
 }
 
@@ -34,7 +28,7 @@ class JsonPayload extends Payload {
   JsonPayload(this.payload);
 
   @override
-  bool binary() {
+  bool isBinary() {
     return false;
   }
 
@@ -43,8 +37,4 @@ class JsonPayload extends Payload {
     return payload;
   }
 
-  @override
-  Object encode() {
-    return payload;
-  }
 }

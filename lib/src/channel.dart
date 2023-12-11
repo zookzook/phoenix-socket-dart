@@ -42,14 +42,9 @@ const statesIgnoringErrors = {
 /// differents clients through a common Phoenix server.
 class PhoenixChannel {
   /// Build a PhoenixChannel from a [PhoenixSocket].
-  PhoenixChannel.fromSocket(
-    this.socket, {
-    required this.topic,
-    Map<String, dynamic>? parameters,
-    Duration? timeout,
-  })  : _controller = StreamController.broadcast(),
+  PhoenixChannel.fromSocket(this.socket, {required this.topic, Payload? parameters, Duration? timeout})  : _controller = StreamController.broadcast(),
         _waiters = {},
-        parameters = parameters ?? {},
+        parameters = parameters ?? JsonPayload({}),
         _timeout = timeout ?? socket.defaultTimeout {
     _joinPush = _prepareJoin();
     _logger = Logger('phoenix_socket.channel.$loggerName');
@@ -59,7 +54,7 @@ class PhoenixChannel {
   }
 
   /// Parameters passed to the backend at join time.
-  final Map<String, dynamic> parameters;
+  final Payload parameters;
 
   /// The [PhoenixSocket] through which this channel is established.
   final PhoenixSocket socket;
@@ -272,7 +267,7 @@ class PhoenixChannel {
   }
 
   Push _prepareJoin([Duration? providedTimeout]) {
-    final push = Push(this, event: PhoenixChannelEvent.join, payload: JsonPayload(parameters), timeout: providedTimeout ?? _timeout);
+    final push = Push(this, event: PhoenixChannelEvent.join, payload: parameters, timeout: providedTimeout ?? _timeout);
     _bindJoinPush(push);
     return push;
   }

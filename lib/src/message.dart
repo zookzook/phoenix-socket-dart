@@ -1,6 +1,3 @@
-import 'dart:math';
-
-import 'package:equatable/equatable.dart';
 import 'package:logging/logging.dart';
 
 import 'channel.dart';
@@ -16,7 +13,7 @@ const int replyMessage = 1;
 
 /// Class that encapsulate a message being sent or received on a
 /// [PhoenixSocket].
-class Message extends Equatable {
+class Message {
 
   // JSON encoded message
   factory Message.fromJson(List<dynamic> parts) {
@@ -144,7 +141,7 @@ class Message extends Equatable {
 
   /// Encode a message to a JSON-encodable list of values.
   Object encode() {
-    if(payload!.binary()) {
+    if(payload!.isBinary()) {
       return _encodeBinary();
     } // if
     else {
@@ -202,7 +199,7 @@ class Message extends Equatable {
   /// Whether the message is a reply message.
   bool get isReply => PhoenixChannelEvent.isReply(event);
 
-  bool get isBinary => payload!.binary();
+  bool get isBinary => payload!.isBinary();
 
   void updateEvent() {
     event = PhoenixChannelEvent.makeKey(ref!);
